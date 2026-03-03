@@ -1,5 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, stepCountIs, type UIMessage } from "ai";
+import { streamText, stepCountIs, convertToModelMessages, type UIMessage } from "ai";
 import { NextResponse } from "next/server";
 import { store } from "@/lib/store/in-memory";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     const result = streamText({
       model: anthropic("claude-sonnet-4-5-20250514"),
       system: systemPrompt,
-      messages,
+      messages: await convertToModelMessages(messages as UIMessage[]),
       tools,
       stopWhen: stepCountIs(5),
       onFinish: async ({ text }) => {

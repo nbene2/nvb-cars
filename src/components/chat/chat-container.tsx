@@ -54,7 +54,7 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
     [leadId, conversationId]
   );
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, error } = useChat({
     transport,
     onFinish: ({ message: msg }) => {
       if (msg.parts) {
@@ -211,6 +211,11 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
                   <TypingIndicator />
                 )}
             </AnimatePresence>
+            {error && (
+              <div className="mx-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                Something went wrong: {error.message || "Could not reach the server. Check that your API key is set in Vercel environment variables."}
+              </div>
+            )}
           </div>
         )}
       </div>

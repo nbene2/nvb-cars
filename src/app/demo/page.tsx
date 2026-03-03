@@ -27,12 +27,7 @@ export default function DemoPage() {
             <span className="text-sm font-semibold">Split-Screen Demo</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            Chat on the left, watch the dashboard update in real-time on the right
-          </span>
-          <ThemeToggle />
-        </div>
+        <ThemeToggle />
       </header>
 
       {/* Split screen */}

@@ -1,8 +1,7 @@
 "use client";
 
-import { Car, Sparkles } from "lucide-react";
+import { Car } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export function ChatHeader() {
   return (
@@ -13,16 +12,12 @@ export function ChatHeader() {
         </div>
         <div>
           <h1 className="text-sm font-semibold tracking-tight">AutoElite Motors</h1>
-          <p className="text-xs text-muted-foreground">Premium Automotive Experience</p>
+          <p className="text-xs text-muted-foreground">Sales Chat</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="gap-1 text-xs border-green-500/30 text-green-500">
-          <Sparkles className="h-3 w-3" />
-          AI Available 24/7
-        </Badge>
-        <ThemeToggle />
-      </div>
+      <Badge variant="outline" className="gap-1 text-xs border-green-500/30 text-green-500">
+        Online
+      </Badge>
     </header>
   );
 }

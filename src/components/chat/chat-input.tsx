@@ -47,7 +47,7 @@ export function ChatInput({ input, setInput, onSubmit, isLoading }: ChatInputPro
         </Button>
       </div>
       <p className="mt-2 text-center text-[10px] text-muted-foreground">
-        Powered by AI &middot; AutoElite Motors
+        AutoElite Motors &middot; Beverly Hills, CA
       </p>
     </form>
   );

@@ -28,10 +28,22 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Use refs so the transport and send helpers always see the latest IDs
-  // without waiting for a React re-render
-  const leadIdRef = useRef<string | null>(null);
-  const conversationIdRef = useRef<string | null>(null);
+  // Create lead + conversation eagerly on mount so the transport always has
+  // valid IDs by the time the user sends their first message.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/chat/lead", { method: "POST" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setLeadId(data.leadId);
+        setConversationId(data.conversationId);
+        onLeadUpdate?.(data.leadId);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const transport = useMemo(
     () =>
@@ -81,34 +93,6 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
     }
   }, [messages]);
 
-  // Create a lead + conversation before the first message is sent.
-  // Returns the IDs so callers don't need to wait for a React state update.
-  const ensureLead = useCallback(async (): Promise<{
-    leadId: string;
-    conversationId: string;
-  }> => {
-    if (leadIdRef.current && conversationIdRef.current) {
-      return {
-        leadId: leadIdRef.current,
-        conversationId: conversationIdRef.current,
-      };
-    }
-
-    const res = await fetch("/api/chat/lead", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-
-    leadIdRef.current = data.leadId;
-    conversationIdRef.current = data.conversationId;
-    setLeadId(data.leadId);
-    setConversationId(data.conversationId);
-    onLeadUpdate?.(data.leadId);
-
-    return { leadId: data.leadId, conversationId: data.conversationId };
-  }, [onLeadUpdate]);
-
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) {
@@ -117,23 +101,20 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
   }, [messages, isLoading]);
 
   const handleSubmit = useCallback(
-    async (e: React.FormEvent) => {
+    (e: React.FormEvent) => {
       e.preventDefault();
       if (!input.trim() || isLoading) return;
-      const text = input;
+      sendMessage({ text: input });
       setInput("");
-      await ensureLead();
-      sendMessage({ text });
     },
-    [input, isLoading, sendMessage, ensureLead]
+    [input, isLoading, sendMessage]
   );
 
   const handleQuickStart = useCallback(
-    async (message: string) => {
-      await ensureLead();
+    (message: string) => {
       sendMessage({ text: message });
     },
-    [sendMessage, ensureLead]
+    [sendMessage]
   );
 
   // Extract text content from a message

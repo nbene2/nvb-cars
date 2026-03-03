@@ -47,7 +47,7 @@ export function WelcomeScreen({ onQuickStart }: WelcomeScreenProps) {
           Welcome to AutoElite Motors
         </h2>
         <p className="mb-8 max-w-md text-sm text-muted-foreground">
-          I&apos;m Alex, your AI sales consultant. I can help you explore our premium
+          I&apos;m Alex, your sales consultant. I can help you explore our premium
           vehicle collection, get pricing details, or schedule a visit.
         </p>
       </motion.div>

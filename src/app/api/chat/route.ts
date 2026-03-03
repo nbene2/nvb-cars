@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     }
 
     const result = streamText({
-      model: anthropic("claude-sonnet-4-5-20250514"),
+      model: anthropic("claude-sonnet-4-5"),
       system: systemPrompt,
       messages: await convertToModelMessages(messages as UIMessage[]),
       tools,

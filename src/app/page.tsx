@@ -67,7 +67,7 @@ export default function Home() {
 
           <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
             Chat with our sales team to explore premium vehicles,
-            get pricing details, and schedule a test drive — all from right here.
+            get pricing details, and schedule a test drive.
           </p>
 
           <Link href="/demo">

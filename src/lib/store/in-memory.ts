@@ -27,20 +27,7 @@ export interface Vehicle {
   updated_at: string;
 }
 
-const SEED_VEHICLES: Vehicle[] = [
-  { id: uuid(), make: "BMW", model: "5 Series", year: 2025, category: "sedan", condition: "new", base_price: 62000, color: "Alpine White", mileage: 0, features: ["Leather Interior", "Panoramic Sunroof", "Adaptive Cruise Control", "Head-Up Display", "Harman Kardon Sound"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Mercedes-Benz", model: "GLE 450", year: 2025, category: "suv", condition: "new", base_price: 72000, color: "Obsidian Black", mileage: 0, features: ["AMG Line", "MBUX Infotainment", "Air Suspension", "360 Camera", "Burmester Sound System"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Porsche", model: "Cayenne", year: 2024, category: "suv", condition: "certified-pre-owned", base_price: 68500, color: "Carrara White", mileage: 12000, features: ["Sport Chrono Package", "BOSE Sound", "Panoramic Roof", "21-inch Wheels", "Adaptive Air Suspension"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Tesla", model: "Model S", year: 2025, category: "electric", condition: "new", base_price: 79990, color: "Pearl White", mileage: 0, features: ["Full Self-Driving", "Plaid Powertrain", "Glass Roof", "Premium Interior", "HEPA Filtration"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Audi", model: "e-tron GT", year: 2025, category: "electric", condition: "new", base_price: 106000, color: "Daytona Gray", mileage: 0, features: ["quattro AWD", "Matrix LED", "Bang & Olufsen 3D Sound", "Air Suspension", "RS Sport Seats"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Land Rover", model: "Range Rover Sport", year: 2024, category: "suv", condition: "certified-pre-owned", base_price: 82000, color: "Santorini Black", mileage: 8500, features: ["Meridian Sound", "Terrain Response 2", "Pixel LED", "Pivi Pro", "Configurable Dynamics"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "BMW", model: "M4 Competition", year: 2025, category: "coupe", condition: "new", base_price: 84000, color: "Isle of Man Green", mileage: 0, features: ["M Carbon Bucket Seats", "M Carbon Roof", "M Adaptive Suspension", "M Drive Professional", "Laserlight"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Mercedes-Benz", model: "C 300", year: 2024, category: "sedan", condition: "certified-pre-owned", base_price: 38500, color: "Selenite Grey", mileage: 15000, features: ["AMG Line", "Digital Light", "MBUX", "Burmester", "Panoramic Sunroof"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Ford", model: "F-150 Lightning", year: 2025, category: "truck", condition: "new", base_price: 55000, color: "Iconic Silver", mileage: 0, features: ["Extended Range Battery", "BlueCruise", "Pro Power Onboard", "Max Recline Seats", "360 Camera"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Porsche", model: "911 Carrera", year: 2025, category: "coupe", condition: "new", base_price: 120000, color: "GT Silver", mileage: 0, features: ["Sport Exhaust", "PASM", "Sport Chrono", "Carbon Interior", "Bose Surround Sound"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Lexus", model: "RX 500h", year: 2025, category: "suv", condition: "new", base_price: 62500, color: "Caviar Black", mileage: 0, features: ["F SPORT Performance", "Mark Levinson Audio", "Panoramic Roof", "Advanced Safety+", "Head-Up Display"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: uuid(), make: "Toyota", model: "Camry", year: 2025, category: "sedan", condition: "new", base_price: 32000, color: "Wind Chill Pearl", mileage: 0, features: ["JBL Audio", "Dynamic Force Engine", "Safety Sense 3.0", "Wireless Charging", "12.3-inch Display"], image_url: null, vin: null, status: "available", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-];
+import { SEED_VEHICLES } from "./seed-vehicles";
 
 // ---- LEADS ----
 export interface Lead {
@@ -277,16 +264,25 @@ class InMemoryStore {
     min_price?: number;
     max_price?: number;
     make?: string;
+    model?: string;
   }): Vehicle[] {
     return this.vehicles
       .filter((v) => v.status === "available")
       .filter((v) => !filters.category || v.category === filters.category)
-      .filter((v) => !filters.condition || v.condition === filters.condition)
+      .filter((v) => {
+        if (!filters.condition) return true;
+        // "used" matches both "used" and "certified-pre-owned" — that's how buyers think
+        if (filters.condition === "used") {
+          return v.condition === "used" || v.condition === "certified-pre-owned";
+        }
+        return v.condition === filters.condition;
+      })
       .filter((v) => !filters.min_price || v.base_price >= filters.min_price)
       .filter((v) => !filters.max_price || v.base_price <= filters.max_price)
       .filter((v) => !filters.make || v.make.toLowerCase().includes(filters.make.toLowerCase()))
+      .filter((v) => !filters.model || v.model.toLowerCase().includes(filters.model.toLowerCase()))
       .sort((a, b) => a.base_price - b.base_price)
-      .slice(0, 3);
+      .slice(0, 5);
   }
 
   // ---- Feedback ----

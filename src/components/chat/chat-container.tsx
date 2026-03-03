@@ -81,82 +81,76 @@ export function ChatContainer({ onLeadUpdate, onLeadData, className }: ChatConta
     [leadId, conversationId]
   );
 
-  // Extract lead data from a tool result and notify parent
-  const processToolResult = useCallback(
-    (result: Record<string, unknown>) => {
-      if (result?.score !== undefined) {
-        const newScore = result.score as number;
-        const newTier = (result.tier as ScoreTier) || tier;
+  const messagesRef = useRef<UIMessage[]>([]);
+
+  // Call the scorer LLM after each assistant message
+  const runScorer = useCallback(
+    async (allMessages: UIMessage[]) => {
+      if (allMessages.length === 0) return;
+      try {
+        const res = await fetch("/api/chat/score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: allMessages }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+
+        const newScore = data.score as number;
+        const newTier = (data.tier as ScoreTier) || "cold";
         setScore(newScore);
         setTier(newTier);
 
-        // Update snapshot
-        const snapshot = { ...leadSnapshotRef.current };
-        snapshot.score = newScore;
-        snapshot.tier = newTier;
+        const snapshot: LeadSnapshot = {
+          ...leadSnapshotRef.current,
+          score: newScore,
+          tier: newTier,
+          signals: data.signals || {},
+        };
 
-        if (result.signals) {
-          snapshot.signals = result.signals as Partial<ScoreSignals>;
-        }
-
-        if (result.lead && typeof result.lead === "object") {
-          const lead = result.lead as Record<string, unknown>;
-          if (lead.name !== undefined) snapshot.name = lead.name as string | null;
-          if (lead.email !== undefined) snapshot.email = lead.email as string | null;
-          if (lead.phone !== undefined) snapshot.phone = lead.phone as string | null;
-          if (lead.vehicle_interest !== undefined) snapshot.vehicle_interest = lead.vehicle_interest as Record<string, unknown>;
-          if (lead.budget_min !== undefined) snapshot.budget_min = lead.budget_min as number | null;
-          if (lead.budget_max !== undefined) snapshot.budget_max = lead.budget_max as number | null;
-          if (lead.timeline !== undefined) snapshot.timeline = lead.timeline as string | null;
-          if (lead.trade_in !== undefined) snapshot.trade_in = lead.trade_in as Record<string, unknown>;
-          if (lead.financing_needed !== undefined) snapshot.financing_needed = lead.financing_needed as boolean | null;
+        if (data.lead) {
+          const lead = data.lead as Record<string, unknown>;
+          snapshot.name = (lead.name as string | null) ?? snapshot.name;
+          snapshot.email = (lead.email as string | null) ?? snapshot.email;
+          snapshot.phone = (lead.phone as string | null) ?? snapshot.phone;
+          snapshot.vehicle_interest = (lead.vehicle_interest as Record<string, unknown>) ?? snapshot.vehicle_interest;
+          snapshot.budget_min = (lead.budget_min as number | null) ?? snapshot.budget_min;
+          snapshot.budget_max = (lead.budget_max as number | null) ?? snapshot.budget_max;
+          snapshot.timeline = (lead.timeline as string | null) ?? snapshot.timeline;
+          snapshot.financing_needed = (lead.financing_needed as boolean | null) ?? snapshot.financing_needed;
+          if (lead.has_trade_in !== undefined) {
+            snapshot.trade_in = { has_trade_in: lead.has_trade_in };
+          }
         }
 
         leadSnapshotRef.current = snapshot;
 
-        // Add to score history
         scoreHistoryRef.current = [
           ...scoreHistoryRef.current,
           { score: newScore, tier: newTier, timestamp: new Date().toISOString() },
         ];
 
         onLeadData?.(snapshot, scoreHistoryRef.current);
+      } catch {
+        // Scoring failed silently — don't block the chat
       }
     },
-    [tier, onLeadData]
+    [onLeadData]
   );
 
   const { messages, sendMessage, status, error } = useChat({
     transport,
-    onFinish: ({ message: msg }) => {
-      if (msg.parts) {
-        for (const part of msg.parts) {
-          if (part.type.startsWith("tool-") && "output" in part) {
-            processToolResult(
-              (part as unknown as { output: Record<string, unknown> }).output
-            );
-          }
-        }
-      }
+    onFinish: () => {
+      // After Alex finishes, run the scorer on the full conversation
+      runScorer(messagesRef.current);
     },
   });
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Also sync from messages effect (catches streaming tool results)
+  // Keep messages ref in sync for the scorer
   useEffect(() => {
-    for (const message of messages) {
-      if (message.role !== "assistant") continue;
-      for (const part of message.parts) {
-        if (part.type.startsWith("tool-") && "output" in part) {
-          const result = part.output as Record<string, unknown>;
-          if (result?.score !== undefined) {
-            setScore(result.score as number);
-            if (result.tier) setTier(result.tier as ScoreTier);
-          }
-        }
-      }
-    }
+    messagesRef.current = messages;
   }, [messages]);
 
   // Auto-scroll

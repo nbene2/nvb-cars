@@ -28,6 +28,11 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Use refs so the transport and send helpers always see the latest IDs
+  // without waiting for a React re-render
+  const leadIdRef = useRef<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
+
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -58,11 +63,8 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Track lead/conversation IDs from tool results
+  // Sync score/tier from tool results in messages
   useEffect(() => {
-    // Try to get IDs from the first response
-    // Since headers aren't directly accessible in v6, we'll create leads via the API
-    // and get the ID from the first tool call result
     for (const message of messages) {
       if (message.role !== "assistant") continue;
       for (const part of message.parts) {
@@ -79,29 +81,33 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
     }
   }, [messages]);
 
-  // Fetch lead ID after first message
-  useEffect(() => {
-    if (messages.length > 0 && !leadId) {
-      // The API creates the lead and returns the ID in headers
-      // We need to fetch it separately
-      fetch("/api/chat/lead", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.leadId) {
-            setLeadId(data.leadId);
-            onLeadUpdate?.(data.leadId);
-          }
-          if (data.conversationId) {
-            setConversationId(data.conversationId);
-          }
-        })
-        .catch(() => {});
+  // Create a lead + conversation before the first message is sent.
+  // Returns the IDs so callers don't need to wait for a React state update.
+  const ensureLead = useCallback(async (): Promise<{
+    leadId: string;
+    conversationId: string;
+  }> => {
+    if (leadIdRef.current && conversationIdRef.current) {
+      return {
+        leadId: leadIdRef.current,
+        conversationId: conversationIdRef.current,
+      };
     }
-  }, [messages.length, leadId, conversationId, onLeadUpdate]);
+
+    const res = await fetch("/api/chat/lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+
+    leadIdRef.current = data.leadId;
+    conversationIdRef.current = data.conversationId;
+    setLeadId(data.leadId);
+    setConversationId(data.conversationId);
+    onLeadUpdate?.(data.leadId);
+
+    return { leadId: data.leadId, conversationId: data.conversationId };
+  }, [onLeadUpdate]);
 
   // Auto-scroll
   useEffect(() => {
@@ -111,20 +117,23 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
   }, [messages, isLoading]);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
+    async (e: React.FormEvent) => {
       e.preventDefault();
       if (!input.trim() || isLoading) return;
-      sendMessage({ text: input });
+      const text = input;
       setInput("");
+      await ensureLead();
+      sendMessage({ text });
     },
-    [input, isLoading, sendMessage]
+    [input, isLoading, sendMessage, ensureLead]
   );
 
   const handleQuickStart = useCallback(
-    (message: string) => {
+    async (message: string) => {
+      await ensureLead();
       sendMessage({ text: message });
     },
-    [sendMessage]
+    [sendMessage, ensureLead]
   );
 
   // Extract text content from a message

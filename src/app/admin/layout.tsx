@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, Home, MessageSquare, Settings, Users, ArrowLeft } from "lucide-react";
+import { SafeUserButton } from "@/components/clerk-gate";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               Demo Mode
             </Button>
           </Link>
-          <div className="flex justify-center pt-2">
+          <div className="flex items-center justify-between pt-2 px-1">
+            <SafeUserButton afterSignOutUrl="/" />
             <ThemeToggle />
           </div>
         </div>

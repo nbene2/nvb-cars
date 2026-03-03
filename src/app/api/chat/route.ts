@@ -5,7 +5,8 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { createTools } from "@/lib/ai/tools";
 import { computeScore } from "@/lib/scoring/engine";
 
-export const maxDuration = 60;
+// Vercel Pro allows up to 300s. Hobby tier caps at 10s — lower this if on free plan.
+export const maxDuration = 30;
 
 function getTextFromUIMessage(msg: UIMessage): string {
   if (!msg.parts) return "";
@@ -18,7 +19,8 @@ function getTextFromUIMessage(msg: UIMessage): string {
 export async function POST(req: Request) {
   const { messages, leadId, conversationId } = await req.json();
 
-  // Get or create lead
+  // Client must pre-create the lead via /api/chat/lead before sending the
+  // first message.  Fall back only as a safety net.
   let activeLeadId = leadId;
   let activeConversationId = conversationId;
 
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
     activeLeadId = lead.id;
   }
 
-  if (!activeConversationId && activeLeadId) {
+  if (!activeConversationId) {
     const conv = store.createConversation(activeLeadId);
     activeConversationId = conv.id;
   }

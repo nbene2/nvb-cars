@@ -1,8 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Bot, BarChart3, Sparkles, Zap, Shield, TrendingUp } from "lucide-react";
+import { ArrowRight, Bot, BarChart3, Sparkles, Zap, Shield, TrendingUp, LogIn } from "lucide-react";
 import Link from "next/link";
+import { AuthedOnly, UnauthOnly } from "@/components/clerk-gate";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 
@@ -25,11 +26,21 @@ export default function Home() {
                 Live Demo
               </Button>
             </Link>
-            <Link href="/admin">
-              <Button variant="ghost" size="sm">
-                Admin
-              </Button>
-            </Link>
+            <AuthedOnly>
+              <Link href="/admin">
+                <Button variant="ghost" size="sm">
+                  Admin
+                </Button>
+              </Link>
+            </AuthedOnly>
+            <UnauthOnly>
+              <Link href="/sign-in">
+                <Button variant="ghost" size="sm" className="gap-1">
+                  <LogIn className="h-3.5 w-3.5" />
+                  Staff Login
+                </Button>
+              </Link>
+            </UnauthOnly>
           </div>
         </div>
       </nav>

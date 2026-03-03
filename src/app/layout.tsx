@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
+import { dark } from "@clerk/themes";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -21,12 +23,15 @@ export const metadata: Metadata = {
   },
 };
 
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const isClerkEnabled = clerkKey && !clerkKey.includes("PLACEHOLDER");
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
+  const inner = (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider
@@ -41,5 +46,13 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
+  );
+
+  if (!isClerkEnabled) {
+    return inner;
+  }
+
+  return (
+    <ClerkProvider appearance={{ baseTheme: dark }}>{inner}</ClerkProvider>
   );
 }

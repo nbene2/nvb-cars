@@ -107,13 +107,27 @@ export function createTools(leadId: string, _conversationId: string) {
           trigger_message_id: null,
         });
 
+        const updatedLead = store.getLead(leadId);
+
         return {
           success: true,
           score,
           tier,
+          signals: mergedSignals,
           signals_detected: Object.entries(mergedSignals)
             .filter(([, v]) => v)
             .map(([k]) => k),
+          lead: updatedLead ? {
+            name: updatedLead.name,
+            email: updatedLead.email,
+            phone: updatedLead.phone,
+            vehicle_interest: updatedLead.vehicle_interest,
+            budget_min: updatedLead.budget_min,
+            budget_max: updatedLead.budget_max,
+            timeline: updatedLead.timeline,
+            trade_in: updatedLead.trade_in,
+            financing_needed: updatedLead.financing_needed,
+          } : null,
         };
       },
     }),
@@ -168,13 +182,17 @@ export function createTools(leadId: string, _conversationId: string) {
           .describe("Type of appointment"),
       }),
       execute: async (params) => {
+        let score = 0;
+        let tier: "hot" | "warm" | "cold" = "cold";
+        let signals: Partial<ScoreSignals> = {};
+
         const lead = store.getLead(leadId);
         if (lead) {
-          const signals = mergeSignals(
+          signals = mergeSignals(
             (lead.score_signals || EMPTY_SIGNALS) as Partial<ScoreSignals>,
             { requested_appointment: true }
           );
-          const { score, tier } = computeScore(signals);
+          ({ score, tier } = computeScore(signals));
           store.updateLead(leadId, { status: "appointment_set", score, score_tier: tier, score_signals: signals });
           store.addScoreHistory({ lead_id: leadId, score, tier, signals, trigger_message_id: null });
         }
@@ -183,6 +201,9 @@ export function createTools(leadId: string, _conversationId: string) {
 
         return {
           success: true,
+          score,
+          tier,
+          signals,
           appointment_type: params.appointment_type,
           available_slots: slots,
           dealership_address: "1200 Prestige Boulevard, Beverly Hills, CA 90210",

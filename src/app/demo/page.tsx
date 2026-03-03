@@ -1,16 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Monitor } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChatContainer } from "@/components/chat/chat-container";
+import type { LeadSnapshot, ScoreHistoryEntry } from "@/components/chat/chat-container";
 import { LiveDashboard } from "@/components/demo/live-dashboard";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function DemoPage() {
   const [leadId, setLeadId] = useState<string | null>(null);
+  const [leadData, setLeadData] = useState<LeadSnapshot | null>(null);
+  const [scoreHistory, setScoreHistory] = useState<ScoreHistoryEntry[]>([]);
+
+  const handleLeadData = useCallback(
+    (data: LeadSnapshot, history: ScoreHistoryEntry[]) => {
+      setLeadData(data);
+      setScoreHistory(history);
+    },
+    []
+  );
 
   return (
     <div className="flex h-screen flex-col">
@@ -38,7 +49,11 @@ export default function DemoPage() {
           animate={{ x: 0, opacity: 1 }}
           className="flex w-1/2 flex-col border-r"
         >
-          <ChatContainer onLeadUpdate={setLeadId} className="h-full" />
+          <ChatContainer
+            onLeadUpdate={setLeadId}
+            onLeadData={handleLeadData}
+            className="h-full"
+          />
         </motion.div>
 
         {/* Dashboard side */}
@@ -48,7 +63,11 @@ export default function DemoPage() {
           transition={{ delay: 0.1 }}
           className="w-1/2 bg-muted/20"
         >
-          <LiveDashboard leadId={leadId} />
+          <LiveDashboard
+            leadId={leadId}
+            leadData={leadData}
+            scoreHistory={scoreHistory}
+          />
         </motion.div>
       </div>
     </div>

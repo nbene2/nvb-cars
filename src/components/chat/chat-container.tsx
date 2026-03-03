@@ -12,24 +12,51 @@ import { WelcomeScreen } from "./welcome-screen";
 import { VehicleCard } from "./vehicle-card";
 import { AppointmentPicker } from "./appointment-picker";
 import { LeadScoreBadge } from "./lead-score-badge";
-import type { ScoreTier } from "@/lib/supabase/types";
+import type { ScoreTier, ScoreSignals } from "@/lib/supabase/types";
 import type { UIMessage } from "ai";
+
+export interface LeadSnapshot {
+  score: number;
+  tier: ScoreTier;
+  signals: Partial<ScoreSignals>;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  vehicle_interest?: Record<string, unknown>;
+  budget_min?: number | null;
+  budget_max?: number | null;
+  timeline?: string | null;
+  trade_in?: Record<string, unknown>;
+  financing_needed?: boolean | null;
+}
+
+export interface ScoreHistoryEntry {
+  score: number;
+  tier: ScoreTier;
+  timestamp: string;
+}
 
 interface ChatContainerProps {
   onLeadUpdate?: (leadId: string) => void;
+  onLeadData?: (data: LeadSnapshot, history: ScoreHistoryEntry[]) => void;
   className?: string;
 }
 
-export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
+export function ChatContainer({ onLeadUpdate, onLeadData, className }: ChatContainerProps) {
   const [leadId, setLeadId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [score, setScore] = useState(0);
   const [tier, setTier] = useState<ScoreTier>("cold");
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scoreHistoryRef = useRef<ScoreHistoryEntry[]>([]);
+  const leadSnapshotRef = useRef<LeadSnapshot>({
+    score: 0,
+    tier: "cold",
+    signals: {},
+  });
 
-  // Create lead + conversation eagerly on mount so the transport always has
-  // valid IDs by the time the user sends their first message.
+  // Create lead + conversation eagerly on mount
   useEffect(() => {
     let cancelled = false;
     fetch("/api/chat/lead", { method: "POST" })
@@ -54,19 +81,60 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
     [leadId, conversationId]
   );
 
+  // Extract lead data from a tool result and notify parent
+  const processToolResult = useCallback(
+    (result: Record<string, unknown>) => {
+      if (result?.score !== undefined) {
+        const newScore = result.score as number;
+        const newTier = (result.tier as ScoreTier) || tier;
+        setScore(newScore);
+        setTier(newTier);
+
+        // Update snapshot
+        const snapshot = { ...leadSnapshotRef.current };
+        snapshot.score = newScore;
+        snapshot.tier = newTier;
+
+        if (result.signals) {
+          snapshot.signals = result.signals as Partial<ScoreSignals>;
+        }
+
+        if (result.lead && typeof result.lead === "object") {
+          const lead = result.lead as Record<string, unknown>;
+          if (lead.name !== undefined) snapshot.name = lead.name as string | null;
+          if (lead.email !== undefined) snapshot.email = lead.email as string | null;
+          if (lead.phone !== undefined) snapshot.phone = lead.phone as string | null;
+          if (lead.vehicle_interest !== undefined) snapshot.vehicle_interest = lead.vehicle_interest as Record<string, unknown>;
+          if (lead.budget_min !== undefined) snapshot.budget_min = lead.budget_min as number | null;
+          if (lead.budget_max !== undefined) snapshot.budget_max = lead.budget_max as number | null;
+          if (lead.timeline !== undefined) snapshot.timeline = lead.timeline as string | null;
+          if (lead.trade_in !== undefined) snapshot.trade_in = lead.trade_in as Record<string, unknown>;
+          if (lead.financing_needed !== undefined) snapshot.financing_needed = lead.financing_needed as boolean | null;
+        }
+
+        leadSnapshotRef.current = snapshot;
+
+        // Add to score history
+        scoreHistoryRef.current = [
+          ...scoreHistoryRef.current,
+          { score: newScore, tier: newTier, timestamp: new Date().toISOString() },
+        ];
+
+        onLeadData?.(snapshot, scoreHistoryRef.current);
+      }
+    },
+    [tier, onLeadData]
+  );
+
   const { messages, sendMessage, status, error } = useChat({
     transport,
     onFinish: ({ message: msg }) => {
       if (msg.parts) {
         for (const part of msg.parts) {
           if (part.type.startsWith("tool-") && "output" in part) {
-            const result = (part as unknown as { output: Record<string, unknown> }).output;
-            if (result?.score !== undefined) {
-              setScore(result.score as number);
-            }
-            if (result?.tier) {
-              setTier(result.tier as ScoreTier);
-            }
+            processToolResult(
+              (part as unknown as { output: Record<string, unknown> }).output
+            );
           }
         }
       }
@@ -75,7 +143,7 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
 
   const isLoading = status === "submitted" || status === "streaming";
 
-  // Sync score/tier from tool results in messages
+  // Also sync from messages effect (catches streaming tool results)
   useEffect(() => {
     for (const message of messages) {
       if (message.role !== "assistant") continue;
@@ -84,9 +152,7 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
           const result = part.output as Record<string, unknown>;
           if (result?.score !== undefined) {
             setScore(result.score as number);
-          }
-          if (result?.tier) {
-            setTier(result.tier as ScoreTier);
+            if (result.tier) setTier(result.tier as ScoreTier);
           }
         }
       }
@@ -117,7 +183,6 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
     [sendMessage]
   );
 
-  // Extract text content from a message
   const getMessageText = (message: UIMessage): string => {
     return message.parts
       .filter((p) => p.type === "text")
@@ -125,12 +190,10 @@ export function ChatContainer({ onLeadUpdate, className }: ChatContainerProps) {
       .join("");
   };
 
-  // Render tool results inline
   const renderToolResults = (message: UIMessage) => {
     const toolParts = message.parts.filter(
       (p) => p.type.startsWith("tool-") && "output" in p
     );
-
     if (toolParts.length === 0) return null;
 
     return toolParts.map((part, i) => {

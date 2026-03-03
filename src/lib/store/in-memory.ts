@@ -162,8 +162,8 @@ class InMemoryStore {
     {
       id: uuid(),
       version_number: 1,
-      system_prompt: "You are Alex, a friendly and knowledgeable sales consultant at AutoElite Motors.",
-      scoring_instructions: "Use tools to extract and record lead information as the conversation progresses.",
+      system_prompt: "You are Alex, a real human sales consultant at AutoElite Motors. Write like you're texting a customer — short, casual, warm. Never use markdown or formatting. Ask one question at a time.",
+      scoring_instructions: "Use tools to extract and record lead information as the conversation progresses. Call updateLeadInfo each time you learn something new.",
       is_active: true,
       performance_metrics: {},
       created_at: new Date().toISOString(),

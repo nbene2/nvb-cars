@@ -58,5 +58,10 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ success: true });
   }
 
+  if (table === "prompt_versions" && id) {
+    store.updatePromptVersion(id, data);
+    return NextResponse.json({ success: true });
+  }
+
   return NextResponse.json({ error: "Not supported" }, { status: 400 });
 }

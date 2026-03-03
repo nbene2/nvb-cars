@@ -300,6 +300,14 @@ class InMemoryStore {
     return fb;
   }
 
+  // ---- Prompt Versions ----
+  updatePromptVersion(id: string, data: Partial<PromptVersion>): void {
+    const pv = this.promptVersions.find((p) => p.id === id);
+    if (pv) {
+      Object.assign(pv, data, { updated_at: new Date().toISOString() });
+    }
+  }
+
   // ---- Scoring Weights ----
   updateWeight(id: string, data: Partial<ScoringWeight>): void {
     const w = this.scoringWeights.find((sw) => sw.id === id);

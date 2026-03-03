@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { ScoringWeightEditor } from "@/components/admin/scoring-weight-editor";
+import { PromptEditor } from "@/components/admin/prompt-editor";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ScoringWeight, PromptVersion } from "@/lib/supabase/types";
 
@@ -35,18 +35,34 @@ export default function ScoringPage() {
         }),
       });
     }
-    // Refetch
     const res = await fetch("/api/data?table=scoring_weights");
     const { data } = await res.json();
     setWeights(data || []);
   };
 
+  const handleSavePrompt = async (
+    id: string,
+    data: { system_prompt: string; scoring_instructions: string }
+  ) => {
+    await fetch("/api/data", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ table: "prompt_versions", id, data }),
+    });
+    // Refetch so the UI reflects the saved state
+    const res = await fetch("/api/data?table=prompt_versions");
+    const result = await res.json();
+    setPromptVersions(result.data || []);
+  };
+
+  const activePrompt = promptVersions.find((p) => p.is_active);
+
   return (
     <div className="p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Scoring Configuration</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Scoring & Prompt Configuration</h1>
         <p className="text-sm text-muted-foreground">
-          Adjust signal weights and manage prompt versions for the scoring model
+          Tune how the chatbot talks to customers and how leads are scored
         </p>
       </div>
 
@@ -54,47 +70,24 @@ export default function ScoringPage() {
         <Skeleton className="h-96 rounded-lg" />
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 space-y-6">
+            {activePrompt && (
+              <PromptEditor
+                promptVersion={activePrompt}
+                onSave={handleSavePrompt}
+              />
+            )}
             <ScoringWeightEditor weights={weights} onSave={handleSaveWeights} />
           </div>
-          <div className="space-y-4">
+          <div>
             <Card className="glass-card p-4">
-              <h3 className="mb-4 text-sm font-semibold">Prompt Versions</h3>
-              {promptVersions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No prompt versions found</p>
-              ) : (
-                <div className="space-y-3">
-                  {promptVersions.map((pv) => (
-                    <div
-                      key={pv.id}
-                      className="rounded-lg border p-3 text-xs"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">Version {pv.version_number}</span>
-                        {pv.is_active && (
-                          <Badge className="text-[10px]">Active</Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground line-clamp-2">
-                        {pv.system_prompt.slice(0, 100)}...
-                      </p>
-                      <p className="mt-1 text-muted-foreground">
-                        Created {new Date(pv.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-
-            <Card className="glass-card p-4">
-              <h3 className="mb-3 text-sm font-semibold">How Learning Works</h3>
+              <h3 className="mb-3 text-sm font-semibold">How It Works</h3>
               <div className="space-y-2 text-xs text-muted-foreground">
-                <p>1. Admin records lead outcomes (purchased, lost, etc.)</p>
-                <p>2. System computes per-signal lift analysis</p>
-                <p>3. Weights adjusted: <code className="bg-muted px-1 rounded">new = base x (1 + lift x 0.1)</code></p>
-                <p>4. Updated weights flow into Claude&apos;s system prompt</p>
-                <p>5. Better signals → better qualification over time</p>
+                <p>1. Edit the system prompt to change how the chatbot behaves</p>
+                <p>2. Adjust signal weights to change what matters most for scoring</p>
+                <p>3. Changes apply to all new conversations immediately</p>
+                <p>4. Record lead outcomes to trigger automatic weight learning</p>
+                <p>5. System adjusts: <code className="bg-muted px-1 rounded">weight = base x (1 + lift x 0.1)</code></p>
               </div>
             </Card>
           </div>
